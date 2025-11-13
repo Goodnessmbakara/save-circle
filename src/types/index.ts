@@ -110,3 +110,28 @@ export interface CreateGroupPayload {
   durationWeeks: number
   memberCap: number
 }
+
+export interface PayoutRequest {
+  id: string
+  groupId: string
+  groupName: string
+  amountBtc: number
+  amountNaira: number
+  status: "pending" | "processing" | "completed" | "failed"
+  requestedAt: string
+  completedAt?: string
+  mavapayTransactionId?: string
+  feeBtc: number
+  feeNaira: number
+}
+
+export interface Notification {
+  id: string
+  type: "payment_reminder" | "vote_request" | "payout_ready" | "group_update" | "application_status"
+  title: string
+  message: string
+  read: boolean
+  createdAt: string
+  link?: string
+  groupId?: string
+}

@@ -1,4 +1,5 @@
 import {
+  GroupMember,
   GroupSummary,
   PaymentEntry,
   PayoutQueueEntry,
@@ -37,7 +38,7 @@ export const mockUser: UserProfile = {
   memberGroupIds: ["grp-1", "grp-2"],
 }
 
-const defaultMembers = [
+const defaultMembers: GroupMember[] = [
   {
     id: "member-1",
     name: "David Oloo",

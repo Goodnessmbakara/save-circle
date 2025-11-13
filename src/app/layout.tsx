@@ -13,9 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lightning-Powered ROSCA Platform",
-  description:
-    "Decentralized rotating savings running on Bitcoin's Lightning Network with trust scoring and Mavapay payouts.",
+  title: "Save Circle - Lightning-Powered ROSCA Platform",
+  description: "Savings you control, payouts in seconds. A modern ROSCA platform powered by Lightning Network.",
 };
 
 export default function RootLayout({

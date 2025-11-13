@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,10 +17,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAppStore } from "@/store/use-app-store"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { JoinGroupDialog } from "@/components/join-group-dialog"
 
 const GroupDetailsPage = () => {
   const params = useParams<{ id: string }>()
-  const { getGroupById, joinGroup, user, payments, votes } = useAppStore()
+  const { getGroupById, user, payments, votes } = useAppStore()
+  const [showJoinDialog, setShowJoinDialog] = useState(false)
   const group = getGroupById(params.id)
 
   if (!group) {
@@ -42,7 +45,7 @@ const GroupDetailsPage = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           {!isMember && (
-            <Button onClick={() => joinGroup(group.id)}>Request to join</Button>
+            <Button onClick={() => setShowJoinDialog(true)}>Request to join</Button>
           )}
           {isAdmin && (
             <Button variant="outline">Manage group</Button>
@@ -79,6 +82,7 @@ const GroupDetailsPage = () => {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="cycles">Cycles</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           {groupVotes.length > 0 && <TabsTrigger value="voting">Voting</TabsTrigger>}
           <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -108,6 +112,95 @@ const GroupDetailsPage = () => {
                     <li key={rule}>{rule}</li>
                   ))}
                 </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="cycles">
+          <Card>
+            <CardHeader>
+              <CardTitle>Cycle management</CardTitle>
+              <p className="text-sm text-muted-foreground">{group.cycleStatus}</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl border p-4">
+                  <p className="text-xs text-muted-foreground">Current cycle</p>
+                  <p className="text-2xl font-semibold">
+                    {group.cycleStatus.includes("Cycle") 
+                      ? group.cycleStatus.match(/Cycle (\d+)/)?.[1] || "1"
+                      : "1"}
+                  </p>
+                </div>
+                <div className="rounded-xl border p-4">
+                  <p className="text-xs text-muted-foreground">Total cycles</p>
+                  <p className="text-2xl font-semibold">
+                    {Math.ceil(group.durationWeeks / (group.frequency === "Weekly" ? 1 : 4))}
+                  </p>
+                </div>
+                <div className="rounded-xl border p-4">
+                  <p className="text-xs text-muted-foreground">Progress</p>
+                  <p className="text-2xl font-semibold">
+                    {Math.round(
+                      ((group.membersCount / group.memberCap) * 100)
+                    )}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="font-semibold mb-3">Payout order</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Payouts are ordered by trust score (highest first). Members receive payouts in
+                    rotation order.
+                  </p>
+                  <div className="space-y-2">
+                    {group.members
+                      .sort((a, b) => b.trustScore - a.trustScore)
+                      .map((member, index) => (
+                        <div
+                          key={member.id}
+                          className={`flex items-center justify-between rounded-lg border p-3 ${
+                            index === 0 ? "bg-primary/5 border-primary/40" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium">{member.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Trust score: {member.trustScore}
+                              </p>
+                            </div>
+                          </div>
+                          {index === 0 && (
+                            <Badge variant="secondary">Next payout</Badge>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border p-4 bg-muted/40">
+                  <p className="text-sm font-semibold mb-2">Cycle timeline</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Cycle start</span>
+                      <span className="font-medium">{group.nextContributionDate}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Next payout</span>
+                      <span className="font-medium">{group.nextPayoutDate}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Frequency</span>
+                      <span className="font-medium">{group.frequency}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -224,6 +317,8 @@ const GroupDetailsPage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <JoinGroupDialog group={group} open={showJoinDialog} onOpenChange={setShowJoinDialog} />
     </div>
   )
 }

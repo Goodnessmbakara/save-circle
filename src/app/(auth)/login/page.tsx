@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import {
   Card,
   CardContent,
@@ -16,12 +17,79 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useAppStore } from "@/store/use-app-store"
 import { Checkbox } from "@/components/ui/checkbox"
+import { login, verifyOtp } from "@/api/auth"
+import { Clock, CheckCircle2, AlertCircle } from "lucide-react"
 
 const LoginPage = () => {
+  const router = useRouter()
   const { user, linkMavapay } = useAppStore()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [otpSent, setOtpSent] = useState(false)
+  const [otp, setOtp] = useState("")
   const [otpVerified, setOtpVerified] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const [walletId, setWalletId] = useState(user.mavapayWalletId ?? "")
+
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
+
+  useEffect(() => {
+    if (otp.length === 6 && otpSent && !otpVerified) {
+      handleVerifyOtp()
+    }
+  }, [otp])
+
+  const handleSendOtp = async () => {
+    if (!email || !password) {
+      return
+    }
+    setLoading(true)
+    setOtpError(null)
+    try {
+      await login({ email, password })
+      setOtpSent(true)
+      setResendCooldown(60)
+    } catch (error) {
+      setOtpError("Failed to send OTP. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    if (otp.length !== 6) return
+    setLoading(true)
+    setOtpError(null)
+    try {
+      const result = await verifyOtp(otp)
+      if (result.success) {
+        setOtpVerified(true)
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1000)
+      } else {
+        setOtpError("Invalid OTP. Please try again.")
+        setOtp("")
+      }
+    } catch (error) {
+      setOtpError("Verification failed. Please try again.")
+      setOtp("")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (resendCooldown > 0) return
+    await handleSendOtp()
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-12">
@@ -34,21 +102,45 @@ const LoginPage = () => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email or phone</Label>
-              <Input id="email" placeholder="you@lightning.africa" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@lightning.africa"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading || otpSent}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" />
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading || otpSent}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !otpSent) {
+                    handleSendOtp()
+                  }
+                }}
+              />
             </div>
             <div className="flex items-center gap-2">
-              <Checkbox id="remember" />
+              <Checkbox id="remember" disabled={loading || otpSent} />
               <Label htmlFor="remember" className="text-sm font-normal">
                 Keep me signed in
               </Label>
             </div>
             <div className="flex flex-col gap-2">
-              <Button onClick={() => setOtpSent(true)}>Send OTP</Button>
-              <Button asChild variant="outline">
+              <Button
+                onClick={handleSendOtp}
+                disabled={!email || !password || loading || otpSent}
+              >
+                {loading ? "Sending..." : "Send OTP"}
+              </Button>
+              <Button asChild variant="outline" disabled={loading || otpSent}>
                 <Link href="/register">Need an account? Register</Link>
               </Button>
             </div>
@@ -59,7 +151,9 @@ const LoginPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>OTP Verification</CardTitle>
-              <CardDescription>Mock step – enter any 6 digits.</CardDescription>
+              <CardDescription>
+                Enter the 6-digit code sent to {email || "your email/phone"}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -67,19 +161,61 @@ const LoginPage = () => {
                 <Input
                   id="otp"
                   maxLength={6}
-                  disabled={!otpSent}
+                  disabled={!otpSent || loading || otpVerified}
                   placeholder="123456"
-                  onChange={(event) => setOtpVerified(event.target.value.length === 6)}
+                  value={otp}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "")
+                    setOtp(value)
+                    setOtpError(null)
+                  }}
+                  className="text-center text-2xl tracking-widest"
                 />
+                {otpSent && !otpVerified && (
+                  <div className="flex items-center justify-between text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResendOtp}
+                      disabled={resendCooldown > 0 || loading}
+                    >
+                      {resendCooldown > 0 ? (
+                        <>
+                          <Clock className="mr-1 h-3 w-3" />
+                          Resend in {resendCooldown}s
+                        </>
+                      ) : (
+                        "Resend OTP"
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
-              <Alert variant={otpVerified ? "default" : "destructive"}>
-                <AlertTitle>{otpVerified ? "Verified" : "Awaiting code"}</AlertTitle>
-                <AlertDescription>
-                  {otpVerified
-                    ? "OTP accepted. You can proceed to the dashboard."
-                    : "Enter the 6-digit OTP sent via SMS or email to continue."}
-                </AlertDescription>
-              </Alert>
+              {otpError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{otpError}</AlertDescription>
+                </Alert>
+              )}
+              {otpVerified && (
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4" />
+                  <AlertTitle>Verified</AlertTitle>
+                  <AlertDescription>
+                    OTP accepted. Redirecting to dashboard...
+                  </AlertDescription>
+                </Alert>
+              )}
+              {!otpSent && (
+                <Alert variant="destructive">
+                  <AlertTitle>Awaiting OTP</AlertTitle>
+                  <AlertDescription>
+                    Enter your credentials above and click "Send OTP" to receive a verification
+                    code.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
 

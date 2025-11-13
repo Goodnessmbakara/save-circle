@@ -6,6 +6,8 @@ import {
   ShieldCheck,
   Users2,
   Vote,
+  Wallet,
+  User,
 } from "lucide-react"
 
 export interface NavItem {
@@ -43,10 +45,20 @@ export const navItems: NavItem[] = [
     icon: ShieldCheck,
   },
   {
+    label: "Payouts",
+    href: "/payouts",
+    icon: Wallet,
+  },
+  {
     label: "Voting",
     href: "/groups",
     icon: Vote,
     badge: "Live",
+  },
+  {
+    label: "Profile",
+    href: "/profile",
+    icon: User,
   },
   {
     label: "Admin",
