@@ -15,6 +15,7 @@ import {
   CreateGroupPayload,
   GroupMember,
   GroupSummary,
+  Notification,
   PaymentEntry,
   PayoutQueueEntry,
   TrustFactor,
@@ -31,6 +32,7 @@ interface AppState {
   trustScoreHistory: TrustScoreSnapshot[]
   trustFactors: TrustFactor[]
   payoutQueue: PayoutQueueEntry[]
+  notifications: Notification[]
   selectedGroupId?: string
   linkMavapay: (walletId: string) => void
   createGroup: (payload: CreateGroupPayload) => GroupSummary
@@ -40,6 +42,9 @@ interface AppState {
   markPaymentPaid: (paymentId: string) => void
   toggleGroupStatus: (groupId: string, status: "Open" | "Closed") => void
   getGroupById: (groupId: string) => GroupSummary | undefined
+  markNotificationRead: (notificationId: string) => void
+  markAllNotificationsRead: () => void
+  addNotification: (notification: Notification) => void
 }
 
 const buildMemberRecord = (user: UserProfile): GroupMember => ({
@@ -51,6 +56,29 @@ const buildMemberRecord = (user: UserProfile): GroupMember => ({
   lastContribution: new Date().toISOString().slice(0, 10),
 })
 
+const mockNotifications: Notification[] = [
+  {
+    id: "notif-1",
+    type: "payment_reminder",
+    title: "Payment reminder",
+    message: "Your contribution for Lightning Maendeleo Circle is due in 2 days.",
+    read: false,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    link: "/payments",
+    groupId: "grp-1",
+  },
+  {
+    id: "notif-2",
+    type: "vote_request",
+    title: "Vote request",
+    message: "Tracy Amollo has applied to join Lightning Maendeleo Circle. Please vote.",
+    read: false,
+    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    link: "/groups/grp-1/voting",
+    groupId: "grp-1",
+  },
+]
+
 export const useAppStore = create<AppState>((set, get) => ({
   user: mockUser,
   groups: mockGroups,
@@ -59,6 +87,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   trustScoreHistory: mockTrustScoreHistory,
   trustFactors: mockTrustFactors,
   payoutQueue: mockPayoutQueue,
+  notifications: mockNotifications,
   selectedGroupId: mockGroups[0]?.id,
   linkMavapay: (walletId) =>
     set((state) => ({
@@ -153,9 +182,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   markPaymentPaid: (paymentId) =>
     set((state) => {
-      const updatedPayments = state.payments.map((payment) =>
+      const updatedPayments: PaymentEntry[] = state.payments.map((payment) =>
         payment.id === paymentId
-          ? { ...payment, status: "Paid", type: "History" }
+          ? { ...payment, status: "Paid" as const, type: "History" as const }
           : payment,
       )
 
@@ -185,5 +214,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })),
   getGroupById: (groupId) => get().groups.find((group) => group.id === groupId),
+  markNotificationRead: (notificationId) =>
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id === notificationId ? { ...n, read: true } : n,
+      ),
+    })),
+  markAllNotificationsRead: () =>
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+    })),
+  addNotification: (notification) =>
+    set((state) => ({
+      notifications: [notification, ...state.notifications],
+    })),
 }))
+
+export const markNotificationRead = (notificationId: string) => {
+  useAppStore.getState().markNotificationRead(notificationId)
+}
+
+export const markAllNotificationsRead = () => {
+  useAppStore.getState().markAllNotificationsRead()
+}
 
