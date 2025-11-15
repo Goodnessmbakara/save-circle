@@ -1,6 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAppStore } from "@/store/use-app-store"
@@ -72,10 +73,21 @@ const NotificationItem = ({ notification }: { notification: Notification }) => {
 export const NotificationCenter = () => {
   const notifications = useAppStore((state) => state.notifications)
   const markAllNotificationsRead = useAppStore((state) => state.markAllNotificationsRead)
+  const fetchNotifications = useAppStore((state) => state.fetchNotifications)
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  const handleMarkAllRead = () => {
-    markAllNotificationsRead()
+  useEffect(() => {
+    fetchNotifications().catch((error) => {
+      console.error("Failed to fetch notifications:", error)
+    })
+  }, [fetchNotifications])
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead()
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error)
+    }
   }
 
   if (notifications.length === 0) {

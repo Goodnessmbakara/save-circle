@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,9 +21,36 @@ import { useAppStore } from "@/store/use-app-store"
 import { Wallet, User, Shield, Users, Edit, Save, X } from "lucide-react"
 import { getTrustProgress } from "@/lib/trust"
 import { Progress } from "@/components/ui/progress"
+import { updateProfile } from "@/api/profile"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const ProfilePage = () => {
-  const { user, groups, linkMavapay } = useAppStore()
+  const { user, groups, linkMavapay, fetchUser, fetchGroups, loading } = useAppStore()
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchUser(), fetchGroups()])
+      } catch (error) {
+        console.error("Failed to load profile data:", error)
+      }
+    }
+    loadData()
+  }, [fetchUser, fetchGroups])
+
+  if (loading.user || loading.groups) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <div>Please log in to view your profile.</div>
+  }
+
   const [isEditing, setIsEditing] = useState(false)
   const [editedUser, setEditedUser] = useState({
     name: user.name,
@@ -42,10 +69,15 @@ const ProfilePage = () => {
     (group) => user.memberGroupIds.includes(group.id) && !user.adminGroupIds.includes(group.id),
   )
 
-  const handleSaveProfile = () => {
-    // In a real app, this would call an API to update the profile
-    setIsEditing(false)
-    // For now, just update the local state (in real app, this would be via API)
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfile(editedUser)
+      await fetchUser()
+      setIsEditing(false)
+    } catch (error: any) {
+      console.error("Failed to update profile:", error)
+      alert(error.response?.data?.message || "Failed to update profile. Please try again.")
+    }
   }
 
   const handleCancelEdit = () => {
@@ -57,17 +89,28 @@ const ProfilePage = () => {
     setIsEditing(false)
   }
 
-  const handleLinkWallet = () => {
+  const handleLinkWallet = async () => {
     if (walletId.trim()) {
-      linkMavapay(walletId.trim())
-      setShowWalletDialog(false)
-      setWalletId("")
+      try {
+        await linkMavapay(walletId.trim())
+        await fetchUser()
+        setShowWalletDialog(false)
+        setWalletId("")
+      } catch (error) {
+        console.error("Failed to link wallet:", error)
+        alert("Failed to link wallet. Please try again.")
+      }
     }
   }
 
-  const handleUnlinkWallet = () => {
-    // In a real app, this would call an API
-    linkMavapay("")
+  const handleUnlinkWallet = async () => {
+    try {
+      await linkMavapay("")
+      await fetchUser()
+    } catch (error) {
+      console.error("Failed to unlink wallet:", error)
+      alert("Failed to unlink wallet. Please try again.")
+    }
   }
 
   return (

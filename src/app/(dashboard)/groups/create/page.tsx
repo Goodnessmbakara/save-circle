@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useAppStore } from "@/store/use-app-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,14 +11,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
-import { useAppStore } from "@/store/use-app-store"
 import type { CreateGroupPayload } from "@/types"
 
 const steps = ["Basic info", "Parameters", "Confirmation"]
 
 const GroupCreatePage = () => {
   const router = useRouter()
-  const createGroup = useAppStore((state) => state.createGroup)
+  const { createGroup } = useAppStore()
   const [currentStep, setCurrentStep] = useState(0)
   const [errors, setErrors] = useState<string | null>(null)
   const [payload, setPayload] = useState<CreateGroupPayload>({
@@ -56,14 +56,18 @@ const GroupCreatePage = () => {
 
   const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 0))
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     const message = validate()
     if (message) {
       setErrors(message)
       return
     }
-    const group = createGroup(payload)
-    router.push(`/groups/${group.id}`)
+    try {
+      const group = await createGroup(payload)
+      router.push(`/groups/${group.id}`)
+    } catch (error: any) {
+      setErrors(error.response?.data?.message || "Failed to create group. Please try again.")
+    }
   }
 
   return (

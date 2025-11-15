@@ -1,14 +1,40 @@
 "use client"
 
+import { useEffect } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { TrustScoreTrend } from "@/features/dashboard"
 import { getTrustProgress, trustLevelCopy } from "@/lib/trust"
 import { useAppStore } from "@/store/use-app-store"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const TrustScorePage = () => {
-  const { user, trustFactors } = useAppStore()
+  const { user, trustFactors, fetchTrustScore, fetchUser, loading } = useAppStore()
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchUser(), fetchTrustScore()])
+      } catch (error) {
+        console.error("Failed to load trust score data:", error)
+      }
+    }
+    loadData()
+  }, [fetchUser, fetchTrustScore])
+
+  if (loading.user || loading.trustScore) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <div>Please log in to view your trust score.</div>
+  }
 
   return (
     <div className="space-y-6">

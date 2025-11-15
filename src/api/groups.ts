@@ -1,39 +1,65 @@
-import { mockGroups } from "@/data/mock-data"
-import { mockRequest } from "./mock-request"
+import { apiClient } from "./client"
 import { CreateGroupPayload, GroupSummary } from "@/types"
 
-export const getGroups = async () => mockRequest(mockGroups)
+interface JoinGroupResponse {
+  groupId: string
+  status: string
+  message: string
+}
 
-export const getGroupById = async (groupId: string) =>
-  mockRequest(mockGroups.find((group) => group.id === groupId))
+export const getGroups = async (): Promise<GroupSummary[]> => {
+  try {
+    const response = await apiClient.get<GroupSummary[]>("/groups")
+    return response.data
+  } catch (error) {
+    console.error("Get groups error:", error)
+    throw error
+  }
+}
 
-export const createGroup = async (
-  payload: CreateGroupPayload,
-): Promise<GroupSummary> =>
-  mockRequest({
-    ...payload,
-    id: `grp-${Date.now()}`,
-    description: payload.description,
-    members: [],
-    membersCount: 1,
-    memberCap: payload.memberCap,
-    status: "Open",
-    durationWeeks: payload.durationWeeks,
-    cycleStatus: "Cycle 1 starting",
-    nextContributionDate: new Date().toISOString().slice(0, 10),
-    nextPayoutDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10),
-    rules: [],
-    hasPendingVote: false,
-    contributionAmountBtc: payload.contributionAmountBtc,
-    frequency: payload.frequency,
-  })
+export const getGroupById = async (groupId: string): Promise<GroupSummary | null> => {
+  try {
+    const response = await apiClient.get<GroupSummary>(`/groups/${groupId}`)
+    return response.data
+  } catch (error) {
+    console.error("Get group by ID error:", error)
+    if ((error as any).response?.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
 
-export const joinGroup = async (groupId: string) =>
-  mockRequest({
-    groupId,
-    status: "requested",
-    message: "Join request submitted for admin review.",
-  })
+export const createGroup = async (payload: CreateGroupPayload): Promise<GroupSummary> => {
+  try {
+    const response = await apiClient.post<GroupSummary>("/groups", payload)
+    return response.data
+  } catch (error) {
+    console.error("Create group error:", error)
+    throw error
+  }
+}
+
+export const joinGroup = async (groupId: string): Promise<JoinGroupResponse> => {
+  try {
+    const response = await apiClient.post<JoinGroupResponse>(`/groups/${groupId}/join`)
+    return response.data
+  } catch (error) {
+    console.error("Join group error:", error)
+    throw error
+  }
+}
+
+export const toggleGroupStatus = async (
+  groupId: string,
+  status: "Open" | "Closed",
+): Promise<GroupSummary> => {
+  try {
+    const response = await apiClient.put<GroupSummary>(`/groups/${groupId}/status`, { status })
+    return response.data
+  } catch (error) {
+    console.error("Toggle group status error:", error)
+    throw error
+  }
+}
 

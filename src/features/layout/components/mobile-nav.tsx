@@ -11,7 +11,7 @@ import { useAppStore } from "@/store/use-app-store"
 
 export const MobileNav = () => {
   const pathname = usePathname()
-  const isAdmin = useAppStore((state) => state.user.adminGroupIds.length > 0)
+  const isAdmin = useAppStore((state) => (state.user?.adminGroupIds.length ?? 0) > 0)
   const visibleItems = navItems.filter((item) => (item.requiresAdmin ? isAdmin : true))
 
   return (
