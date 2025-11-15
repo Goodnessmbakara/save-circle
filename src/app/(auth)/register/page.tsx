@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
@@ -20,7 +21,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useAppStore } from "@/store/use-app-store"
 import { register, verifyOtp } from "@/api/auth"
-import { Clock, CheckCircle2, AlertCircle } from "lucide-react"
+import { Clock, CheckCircle2, AlertCircle, Zap, Shield, Wallet } from "lucide-react"
 
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -33,7 +34,7 @@ type RegisterFormData = z.infer<typeof registerSchema>
 
 const RegisterPage = () => {
   const router = useRouter()
-  const { user, linkMavapay } = useAppStore()
+  const { user, linkMavapay, setUser, fetchUser } = useAppStore()
   const {
     register: registerForm,
     handleSubmit,
@@ -47,7 +48,7 @@ const RegisterPage = () => {
   const [otpError, setOtpError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [walletId, setWalletId] = useState(user.mavapayWalletId ?? "")
+  const [walletId, setWalletId] = useState(user?.mavapayWalletId ?? "")
   const [formData, setFormData] = useState<RegisterFormData>({
     name: "",
     email: "",
@@ -73,11 +74,20 @@ const RegisterPage = () => {
     setLoading(true)
     setOtpError(null)
     try {
-      await register({ email: data.email, password: data.password, phone: data.phone })
+      const result = await register({
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+      })
+      if (result.user) {
+        setUser(result.user)
+      }
       setOtpSent(true)
       setResendCooldown(60)
-    } catch (error) {
-      setOtpError("Failed to register. Please try again.")
+    } catch (error: any) {
+      setOtpError(
+        error.response?.data?.message || "Failed to register. Please try again.",
+      )
     } finally {
       setLoading(false)
     }
@@ -90,6 +100,8 @@ const RegisterPage = () => {
     try {
       const result = await verifyOtp(otp)
       if (result.success) {
+        // Fetch user data after successful OTP verification
+        await fetchUser()
         setOtpVerified(true)
         setTimeout(() => {
           router.push("/dashboard")
@@ -98,8 +110,10 @@ const RegisterPage = () => {
         setOtpError("Invalid OTP. Please try again.")
         setOtp("")
       }
-    } catch (error) {
-      setOtpError("Verification failed. Please try again.")
+    } catch (error: any) {
+      setOtpError(
+        error.response?.data?.message || "Verification failed. Please try again.",
+      )
       setOtp("")
     } finally {
       setLoading(false)
@@ -112,14 +126,68 @@ const RegisterPage = () => {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4 py-12">
-      <div className="grid w-full max-w-5xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Create your account</CardTitle>
-            <CardDescription>Use your email and phone to join Lightning ROSCAs.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+    <div className="flex min-h-screen flex-col bg-white">
+      {/* Navbar */}
+      <header className="bg-white/60 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-black">
+            <Image
+              src="/save-circle-logo.png"
+              alt="Save Circle logo"
+              width={32}
+              height={32}
+              priority
+              className="h-8 w-8 object-contain"
+            />
+            <span>Save Circle</span>
+          </Link>
+          <nav className="flex items-center gap-4">
+            <Link href="/login">
+              <Button variant="ghost" className="text-black">Sign In</Button>
+            </Link>
+            <Link href="/register">
+              <Button>Get Started</Button>
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1">
+        <div className="relative min-h-[calc(100vh-4rem)]">
+          {/* Background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-white to-primary/5" />
+          
+          {/* Decorative elements */}
+          <div className="absolute top-20 right-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 left-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+          
+          <div className="relative container mx-auto px-4 py-12">
+            <div className="grid w-full max-w-6xl mx-auto gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+              {/* Left Column - Registration Form */}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-bold tracking-tight text-black">
+                    Join the Lightning Revolution
+                  </h1>
+                  <p className="text-lg text-gray-600">
+                    Create your account and start building financial resilience with Lightning ROSCAs.
+                  </p>
+                </div>
+                
+                <Card className="border-2 border-primary/20 shadow-lg">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Zap className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-2xl">Create your account</CardTitle>
+                        <CardDescription>Use your email and phone to join Lightning ROSCAs.</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
             <form onSubmit={handleSubmit(handleRegister)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full name</Label>
@@ -183,15 +251,24 @@ const RegisterPage = () => {
             </p>
           </CardContent>
         </Card>
+              </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>OTP verification</CardTitle>
-              <CardDescription>
-                Enter the 6-digit code sent to {formData.email || formData.phone || "your email/phone"}
-              </CardDescription>
-            </CardHeader>
+              {/* Right Column - OTP & Wallet */}
+              <div className="space-y-6">
+                <Card className="border-2 border-primary/20 shadow-lg">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Shield className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle>OTP verification</CardTitle>
+                        <CardDescription>
+                          Enter the 6-digit code sent to {formData.email || formData.phone || "your email/phone"}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="otp">6-digit code</Label>
@@ -256,14 +333,21 @@ const RegisterPage = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Mavapay wallet</CardTitle>
-              <CardDescription>Connect your settlement wallet for local payouts.</CardDescription>
-            </CardHeader>
+                <Card className="border-2 border-primary/20 shadow-lg">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Wallet className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle>Mavapay wallet</CardTitle>
+                        <CardDescription>Connect your settlement wallet for local payouts.</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
             <CardContent className="space-y-3">
-              <Badge variant={user.mavapayLinked ? "secondary" : "destructive"}>
-                {user.mavapayLinked ? "Wallet linked" : "Wallet not linked"}
+              <Badge variant={user?.mavapayLinked ? "secondary" : "destructive"}>
+                {user?.mavapayLinked ? "Wallet linked" : "Wallet not linked"}
               </Badge>
               <div className="space-y-2">
                 <Label htmlFor="wallet">Wallet ID</Label>
@@ -276,14 +360,26 @@ const RegisterPage = () => {
               </div>
               <Button
                 variant="outline"
-                onClick={() => walletId.trim() && linkMavapay(walletId.trim())}
+                onClick={async () => {
+                  if (walletId.trim()) {
+                    try {
+                      await linkMavapay(walletId.trim())
+                      await fetchUser()
+                    } catch (error) {
+                      console.error("Failed to link wallet:", error)
+                    }
+                  }
+                }}
               >
                 Link wallet
               </Button>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   )
 }

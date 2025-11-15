@@ -32,15 +32,15 @@ export const AppHeader = () => {
         <div className="text-right text-sm hidden sm:block">
           <p className="text-xs text-muted-foreground">Trust score</p>
           <p className="font-semibold">
-            {user.trustScore} · {user.trustLevel}
+            {user?.trustScore ?? 0} · {user?.trustLevel ?? "Unknown"}
           </p>
-          <Badge variant={user.mavapayLinked ? "secondary" : "destructive"}>
-            {user.mavapayLinked ? "Mavapay linked" : "Link Mavapay"}
+          <Badge variant={user?.mavapayLinked ? "secondary" : "destructive"}>
+            {user?.mavapayLinked ? "Mavapay linked" : "Link Mavapay"}
           </Badge>
         </div>
         <Link href="/profile">
           <Avatar className="size-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all">
-            <AvatarFallback>{user.avatarInitials}</AvatarFallback>
+            <AvatarFallback>{user?.avatarInitials ?? "??"}</AvatarFallback>
           </Avatar>
         </Link>
       </div>

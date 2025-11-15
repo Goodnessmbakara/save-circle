@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
+import { useAppStore } from "@/store/use-app-store"
 import {
   Table,
   TableBody,
@@ -22,12 +23,17 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { QRCode } from "@/components/qr-code"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useAppStore } from "@/store/use-app-store"
 import { createPaymentInvoice, verifyPayment } from "@/api/payments"
 import type { PaymentEntry } from "@/types"
 
 const PaymentsPage = () => {
-  const { payments, markPaymentPaid } = useAppStore()
+  const { payments, markPaymentPaid, fetchPayments, loading } = useAppStore()
+
+  useEffect(() => {
+    fetchPayments().catch((error) => {
+      console.error("Failed to fetch payments:", error)
+    })
+  }, [fetchPayments])
   const [selectedPayment, setSelectedPayment] = useState<PaymentEntry | null>(null)
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [invoiceData, setInvoiceData] = useState<{ invoice: string; status: string } | null>(null)

@@ -28,7 +28,7 @@ import type { PayoutQueueEntry, PayoutRequest } from "@/types"
 import { Wallet, Clock, CheckCircle2, XCircle, AlertCircle } from "lucide-react"
 
 const PayoutsPage = () => {
-  const { user, payoutQueue, groups } = useAppStore()
+  const { user, payoutQueue, groups, fetchPayoutQueue, fetchGroups } = useAppStore()
   const [loading, setLoading] = useState(false)
   const [selectedPayout, setSelectedPayout] = useState<PayoutQueueEntry | null>(null)
   const [requesting, setRequesting] = useState(false)
@@ -38,23 +38,25 @@ const PayoutsPage = () => {
     const fetchData = async () => {
       setLoading(true)
       try {
+        await Promise.all([fetchPayoutQueue(), fetchGroups()])
         const requests = await getPayoutRequests()
         setPayoutRequests(requests)
       } catch (error) {
-        console.error("Failed to fetch payout requests:", error)
+        console.error("Failed to fetch payout data:", error)
       } finally {
         setLoading(false)
       }
     }
     fetchData()
-  }, [])
+  }, [fetchPayoutQueue, fetchGroups])
 
   const userPayoutQueue = useMemo(() => {
+    if (!user) return []
     return payoutQueue.filter((entry) => entry.memberName === user.name)
-  }, [payoutQueue, user.name])
+  }, [payoutQueue, user])
 
   const isUserTurn = (entry: PayoutQueueEntry) => {
-    return entry.order === 1 && entry.memberName === user.name
+    return user && entry.order === 1 && entry.memberName === user.name
   }
 
   const calculatePayoutAmount = (group: typeof groups[0]): number => {
@@ -66,7 +68,7 @@ const PayoutsPage = () => {
   }
 
   const handleRequestPayout = async (entry: PayoutQueueEntry) => {
-    if (!user.mavapayLinked) {
+    if (!user || !user.mavapayLinked) {
       alert("Please link your Mavapay wallet first in your profile settings.")
       return
     }
@@ -133,7 +135,7 @@ const PayoutsPage = () => {
         </p>
       </div>
 
-      {!user.mavapayLinked && (
+      {user && !user.mavapayLinked && (
         <Alert variant="destructive">
           <AlertTitle>Mavapay wallet not linked</AlertTitle>
           <AlertDescription>
@@ -197,7 +199,7 @@ const PayoutsPage = () => {
                         <Badge variant="outline">{entry.trustScore}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {isReady && user.mavapayLinked ? (
+                        {isReady && user && user.mavapayLinked ? (
                           <Button
                             size="sm"
                             onClick={() => handleRequestPayout(entry)}
@@ -207,7 +209,7 @@ const PayoutsPage = () => {
                           </Button>
                         ) : (
                           <span className="text-xs text-muted-foreground">
-                            {!user.mavapayLinked ? "Link wallet first" : "Not your turn"}
+                            {!user || !user.mavapayLinked ? "Link wallet first" : "Not your turn"}
                           </span>
                         )}
                       </TableCell>

@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { useAppStore } from "@/store/use-app-store"
-import { joinGroup } from "@/api/groups"
+import { joinGroup as joinGroupApi } from "@/api/groups"
 import type { GroupSummary } from "@/types"
 import { AlertCircle, CheckCircle2 } from "lucide-react"
 
@@ -31,7 +31,7 @@ export const JoinGroupDialog = ({ group, open, onOpenChange }: JoinGroupDialogPr
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isMember = user.memberGroupIds.includes(group.id)
+  const isMember = user?.memberGroupIds.includes(group.id) ?? false
 
   const handleSubmit = async () => {
     if (isMember) {
@@ -48,16 +48,16 @@ export const JoinGroupDialog = ({ group, open, onOpenChange }: JoinGroupDialogPr
     setError(null)
 
     try {
-      await joinGroup(group.id)
-      joinGroupStore(group.id)
+      await joinGroupApi(group.id)
+      await joinGroupStore(group.id)
       setSubmitted(true)
       setTimeout(() => {
         onOpenChange(false)
         setSubmitted(false)
         setApplicationMessage("")
       }, 2000)
-    } catch (err) {
-      setError("Failed to submit application. Please try again.")
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to submit application. Please try again.")
       console.error("Failed to join group:", err)
     } finally {
       setIsSubmitting(false)
@@ -109,7 +109,7 @@ export const JoinGroupDialog = ({ group, open, onOpenChange }: JoinGroupDialogPr
           <div className="rounded-lg border p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Your trust score</span>
-              <Badge>{user.trustScore}</Badge>
+              <Badge>{user?.trustScore ?? 0}</Badge>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Group members</span>
