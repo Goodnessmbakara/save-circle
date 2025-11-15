@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import {
   Table,
   TableBody,
@@ -14,10 +15,47 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useAppStore } from "@/store/use-app-store"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const AdminPage = () => {
-  const { user, groups, votes, payoutQueue, toggleGroupStatus } = useAppStore()
-  const isAdmin = user.adminGroupIds.length > 0
+  const {
+    user,
+    groups,
+    votes,
+    payoutQueue,
+    toggleGroupStatus,
+    fetchUser,
+    fetchGroups,
+    fetchVotes,
+    fetchPayoutQueue,
+    loading,
+  } = useAppStore()
+  const isAdmin = (user?.adminGroupIds.length ?? 0) > 0
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchUser(),
+          fetchGroups(),
+          fetchVotes(),
+          fetchPayoutQueue(),
+        ])
+      } catch (error) {
+        console.error("Failed to load admin data:", error)
+      }
+    }
+    loadData()
+  }, [fetchUser, fetchGroups, fetchVotes, fetchPayoutQueue])
+
+  if (loading.user || loading.groups || loading.votes || loading.payoutQueue) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
 
   if (!isAdmin) {
     return (
@@ -66,9 +104,13 @@ const AdminPage = () => {
                       <TableCell>
                         <Select
                           value={group.status}
-                          onValueChange={(value: "Open" | "Closed") =>
-                            toggleGroupStatus(group.id, value)
-                          }
+                          onValueChange={async (value: "Open" | "Closed") => {
+                            try {
+                              await toggleGroupStatus(group.id, value)
+                            } catch (error) {
+                              console.error("Failed to toggle group status:", error)
+                            }
+                          }}
                         >
                           <SelectTrigger className="w-[140px]">
                             <SelectValue />

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,9 +16,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useAppStore } from "@/store/use-app-store"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const GroupsPage = () => {
-  const { groups } = useAppStore()
+  const { groups, fetchGroups, loading } = useAppStore()
+
+  useEffect(() => {
+    fetchGroups().catch((error) => {
+      console.error("Failed to fetch groups:", error)
+    })
+  }, [fetchGroups])
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [minContribution, setMinContribution] = useState("")
 
@@ -31,6 +38,15 @@ const GroupsPage = () => {
       return statusMatch && amountMatch
     })
   }, [groups, statusFilter, minContribution])
+
+  if (loading.groups) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

@@ -22,7 +22,7 @@ import { Clock, CheckCircle2, AlertCircle } from "lucide-react"
 
 const LoginPage = () => {
   const router = useRouter()
-  const { user, linkMavapay } = useAppStore()
+  const { user, linkMavapay, setUser, fetchUser } = useAppStore()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [otpSent, setOtpSent] = useState(false)
@@ -31,7 +31,7 @@ const LoginPage = () => {
   const [otpError, setOtpError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [walletId, setWalletId] = useState(user.mavapayWalletId ?? "")
+  const [walletId, setWalletId] = useState(user?.mavapayWalletId ?? "")
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -53,11 +53,16 @@ const LoginPage = () => {
     setLoading(true)
     setOtpError(null)
     try {
-      await login({ email, password })
+      const result = await login({ email, password })
+      if (result.user) {
+        setUser(result.user)
+      }
       setOtpSent(true)
       setResendCooldown(60)
-    } catch (error) {
-      setOtpError("Failed to send OTP. Please try again.")
+    } catch (error: any) {
+      setOtpError(
+        error.response?.data?.message || "Failed to send OTP. Please try again.",
+      )
     } finally {
       setLoading(false)
     }
@@ -70,6 +75,8 @@ const LoginPage = () => {
     try {
       const result = await verifyOtp(otp)
       if (result.success) {
+        // Fetch user data after successful OTP verification
+        await fetchUser()
         setOtpVerified(true)
         setTimeout(() => {
           router.push("/dashboard")
@@ -78,8 +85,10 @@ const LoginPage = () => {
         setOtpError("Invalid OTP. Please try again.")
         setOtp("")
       }
-    } catch (error) {
-      setOtpError("Verification failed. Please try again.")
+    } catch (error: any) {
+      setOtpError(
+        error.response?.data?.message || "Verification failed. Please try again.",
+      )
       setOtp("")
     } finally {
       setLoading(false)
@@ -225,8 +234,8 @@ const LoginPage = () => {
               <CardDescription>Connect to swap Lightning payouts to local currency.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Badge variant={user.mavapayLinked ? "secondary" : "destructive"}>
-                {user.mavapayLinked ? "Wallet linked" : "Wallet not linked"}
+              <Badge variant={user?.mavapayLinked ? "secondary" : "destructive"}>
+                {user?.mavapayLinked ? "Wallet linked" : "Wallet not linked"}
               </Badge>
               <div className="space-y-2">
                 <Label htmlFor="wallet">Wallet ID</Label>
@@ -239,7 +248,16 @@ const LoginPage = () => {
               </div>
               <Button
                 variant="outline"
-                onClick={() => walletId.trim() && linkMavapay(walletId.trim())}
+                onClick={async () => {
+                  if (walletId.trim()) {
+                    try {
+                      await linkMavapay(walletId.trim())
+                      await fetchUser()
+                    } catch (error) {
+                      console.error("Failed to link wallet:", error)
+                    }
+                  }
+                }}
               >
                 Save wallet
               </Button>

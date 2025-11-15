@@ -1,6 +1,7 @@
 "use client"
 
 import { useParams } from "next/navigation"
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -10,9 +11,20 @@ import { useAppStore } from "@/store/use-app-store"
 
 const VotingPage = () => {
   const params = useParams<{ id: string }>()
-  const { votes, submitVote, getGroupById } = useAppStore()
+  const { votes, submitVote, getGroupById, fetchVotes, fetchGroups } = useAppStore()
   const group = getGroupById(params.id)
   const groupVotes = votes.filter((vote) => vote.groupId === params.id)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([fetchVotes(), fetchGroups()])
+      } catch (error) {
+        console.error("Failed to load voting data:", error)
+      }
+    }
+    loadData()
+  }, [fetchVotes, fetchGroups])
 
   if (!group) {
     return (

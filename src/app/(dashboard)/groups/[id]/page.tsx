@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,30 +18,68 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAppStore } from "@/store/use-app-store"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { JoinGroupDialog } from "@/components/join-group-dialog"
+import { getGroupById as getGroupByIdApi } from "@/api/groups"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const GroupDetailsPage = () => {
   const params = useParams<{ id: string }>()
-  const { getGroupById, user, payments, votes } = useAppStore()
+  const { getGroupById, user, payments, votes, fetchPayments, fetchVotes } = useAppStore()
   const [showJoinDialog, setShowJoinDialog] = useState(false)
-  const group = getGroupById(params.id)
+  const [group, setGroup] = useState<ReturnType<typeof getGroupById> | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  if (!group) {
+  useEffect(() => {
+    const loadGroup = async () => {
+      try {
+        const groupData = await getGroupByIdApi(params.id)
+        if (groupData) {
+          setGroup(groupData)
+          // Also update store
+          const storeGroup = getGroupById(params.id)
+          if (!storeGroup) {
+            // If not in store, fetch groups
+            await useAppStore.getState().fetchGroups()
+          }
+        }
+        await Promise.all([fetchPayments(), fetchVotes()])
+      } catch (error) {
+        console.error("Failed to load group:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadGroup()
+  }, [params.id, fetchPayments, fetchVotes, getGroupById])
+
+  const storeGroup = getGroupById(params.id)
+  const displayGroup = group || storeGroup
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    )
+  }
+
+  if (!displayGroup) {
     return notFound()
   }
 
-  const isMember = user.memberGroupIds.includes(group.id)
-  const isAdmin = user.adminGroupIds.includes(group.id)
-  const groupVotes = votes.filter((vote) => vote.groupId === group.id && vote.status === "pending")
-  const groupPayments = payments.filter((payment) => payment.groupId === group.id)
-  const nextPayout = group.nextPayoutDate
+  const isMember = user?.memberGroupIds.includes(displayGroup.id) ?? false
+  const isAdmin = user?.adminGroupIds.includes(displayGroup.id) ?? false
+  const groupVotes = votes.filter((vote) => vote.groupId === displayGroup.id && vote.status === "pending")
+  const groupPayments = payments.filter((payment) => payment.groupId === displayGroup.id)
+  const nextPayout = displayGroup.nextPayoutDate
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-sm uppercase text-muted-foreground">Group</p>
-          <h1 className="text-3xl font-semibold">{group.name}</h1>
-          <p className="text-muted-foreground">{group.description}</p>
+          <h1 className="text-3xl font-semibold">{displayGroup.name}</h1>
+          <p className="text-muted-foreground">{displayGroup.description}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {!isMember && (
@@ -52,7 +90,7 @@ const GroupDetailsPage = () => {
           )}
           {groupVotes.length > 0 && (
             <Button asChild variant="secondary">
-              <Link href={`/groups/${group.id}/voting`}>Open voting</Link>
+              <Link href={`/groups/${displayGroup.id}/voting`}>Open voting</Link>
             </Button>
           )}
         </div>
@@ -62,11 +100,11 @@ const GroupDetailsPage = () => {
         <CardContent className="grid gap-4 px-6 py-4 md:grid-cols-4">
           <div>
             <p className="text-xs text-muted-foreground">Contribution</p>
-            <p className="text-lg font-semibold">{group.contributionAmountBtc} BTC</p>
+            <p className="text-lg font-semibold">{displayGroup.contributionAmountBtc} BTC</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Frequency</p>
-            <p className="text-lg font-semibold">{group.frequency}</p>
+            <p className="text-lg font-semibold">{displayGroup.frequency}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Next payout</p>
@@ -74,7 +112,7 @@ const GroupDetailsPage = () => {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Status</p>
-            <Badge variant={group.status === "Open" ? "secondary" : "outline"}>{group.status}</Badge>
+            <Badge variant={displayGroup.status === "Open" ? "secondary" : "outline"}>{displayGroup.status}</Badge>
           </div>
         </CardContent>
       </Card>
@@ -96,19 +134,19 @@ const GroupDetailsPage = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border p-4">
                   <p className="text-xs text-muted-foreground">Duration</p>
-                  <p className="text-lg font-semibold">{group.durationWeeks} weeks</p>
+                  <p className="text-lg font-semibold">{displayGroup.durationWeeks} weeks</p>
                 </div>
                 <div className="rounded-xl border p-4">
                   <p className="text-xs text-muted-foreground">Members</p>
                   <p className="text-lg font-semibold">
-                    {group.membersCount}/{group.memberCap}
+                    {displayGroup.membersCount}/{displayGroup.memberCap}
                   </p>
                 </div>
               </div>
               <div className="space-y-2">
                 <p className="font-semibold">Rules</p>
                 <ul className="list-inside list-disc text-sm text-muted-foreground">
-                  {group.rules.map((rule) => (
+                  {displayGroup.rules.map((rule) => (
                     <li key={rule}>{rule}</li>
                   ))}
                 </ul>
@@ -120,29 +158,29 @@ const GroupDetailsPage = () => {
           <Card>
             <CardHeader>
               <CardTitle>Cycle management</CardTitle>
-              <p className="text-sm text-muted-foreground">{group.cycleStatus}</p>
+              <p className="text-sm text-muted-foreground">{displayGroup.cycleStatus}</p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-xl border p-4">
                   <p className="text-xs text-muted-foreground">Current cycle</p>
                   <p className="text-2xl font-semibold">
-                    {group.cycleStatus.includes("Cycle") 
-                      ? group.cycleStatus.match(/Cycle (\d+)/)?.[1] || "1"
+                    {displayGroup.cycleStatus.includes("Cycle") 
+                      ? displayGroup.cycleStatus.match(/Cycle (\d+)/)?.[1] || "1"
                       : "1"}
                   </p>
                 </div>
                 <div className="rounded-xl border p-4">
                   <p className="text-xs text-muted-foreground">Total cycles</p>
                   <p className="text-2xl font-semibold">
-                    {Math.ceil(group.durationWeeks / (group.frequency === "Weekly" ? 1 : 4))}
+                    {Math.ceil(displayGroup.durationWeeks / (displayGroup.frequency === "Weekly" ? 1 : 4))}
                   </p>
                 </div>
                 <div className="rounded-xl border p-4">
                   <p className="text-xs text-muted-foreground">Progress</p>
                   <p className="text-2xl font-semibold">
                     {Math.round(
-                      ((group.membersCount / group.memberCap) * 100)
+                      ((displayGroup.membersCount / displayGroup.memberCap) * 100)
                     )}%
                   </p>
                 </div>
@@ -156,7 +194,7 @@ const GroupDetailsPage = () => {
                     rotation order.
                   </p>
                   <div className="space-y-2">
-                    {group.members
+                    {displayGroup.members
                       .sort((a, b) => b.trustScore - a.trustScore)
                       .map((member, index) => (
                         <div
@@ -189,15 +227,15 @@ const GroupDetailsPage = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Cycle start</span>
-                      <span className="font-medium">{group.nextContributionDate}</span>
+                      <span className="font-medium">{displayGroup.nextContributionDate}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Next payout</span>
-                      <span className="font-medium">{group.nextPayoutDate}</span>
+                      <span className="font-medium">{displayGroup.nextPayoutDate}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Frequency</span>
-                      <span className="font-medium">{group.frequency}</span>
+                      <span className="font-medium">{displayGroup.frequency}</span>
                     </div>
                   </div>
                 </div>
@@ -222,7 +260,7 @@ const GroupDetailsPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {group.members.map((member) => (
+                  {displayGroup.members.map((member) => (
                     <TableRow key={member.id}>
                       <TableCell>{member.name}</TableCell>
                       <TableCell>{member.role}</TableCell>
@@ -318,7 +356,7 @@ const GroupDetailsPage = () => {
         </TabsContent>
       </Tabs>
 
-      <JoinGroupDialog group={group} open={showJoinDialog} onOpenChange={setShowJoinDialog} />
+      <JoinGroupDialog group={displayGroup} open={showJoinDialog} onOpenChange={setShowJoinDialog} />
     </div>
   )
 }

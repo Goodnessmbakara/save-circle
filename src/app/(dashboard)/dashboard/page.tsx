@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect } from "react"
 import { CalendarDays, CircleDollarSign, UsersRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -9,9 +10,44 @@ import { useAppStore } from "@/store/use-app-store"
 import { ContributionChart, StatCard, TrustScoreTrend } from "@/features/dashboard"
 import { getTrustProgress } from "@/lib/trust"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const DashboardPage = () => {
-  const { user, groups, payments, votes } = useAppStore()
+  const { user, groups, payments, votes, fetchUser, fetchGroups, fetchPayments, fetchVotes, loading } =
+    useAppStore()
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchUser(),
+          fetchGroups(),
+          fetchPayments(),
+          fetchVotes(),
+        ])
+      } catch (error) {
+        console.error("Failed to load dashboard data:", error)
+      }
+    }
+    loadData()
+  }, [fetchUser, fetchGroups, fetchPayments, fetchVotes])
+
+  if (loading.user || loading.groups || loading.payments || loading.votes) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-10 w-64" />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <div>Please log in to view your dashboard.</div>
+  }
   const activeGroups = groups.filter((group) => group.status === "Open")
   const upcomingPayments = payments.filter((item) => item.status !== "Paid")
   const pendingVotes = votes.filter((vote) => vote.status === "pending")

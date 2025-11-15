@@ -16,23 +16,23 @@ import {
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <header className="border-b bg-card/60 backdrop-blur-sm">
+    <div className="flex min-h-screen flex-col bg-white">
+      <header className="bg-white/60 backdrop-blur-sm">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
+          <Link href="/" className="flex items-center gap-3 font-semibold text-black">
             <Image
               src="/save-circle-logo.png"
               alt="Save Circle logo"
-              width={32}
-              height={32}
+              width={48}
+              height={48}
               priority
-              className="h-8 w-8 object-contain"
+              className="h-12 w-12 object-contain"
             />
-            <span>Save Circle</span>
+            <span className="text-lg">Save Circle</span>
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/login">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" className="text-black">Sign In</Button>
             </Link>
             <Link href="/register">
               <Button>Get Started</Button>
@@ -42,30 +42,43 @@ export default function Home() {
       </header>
 
       <main className="flex-1">
-        <section className="border-b bg-gradient-to-b from-primary/5 to-background py-20 md:py-32">
-          <div className="container mx-auto px-4">
+        <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden">
+          {/* Video Background */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          >
+            <source src="https://cdn.sp-assets.net/videos/hero-v8-desktop.mp4" type="video/mp4" />
+          </video>
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-black/40 z-10" />
+          
+          <div className="container mx-auto px-4 py-20 relative z-20">
             <div className="mx-auto max-w-3xl text-center">
-              <Badge variant="secondary" className="mb-4">
+              <Badge variant="secondary" className="mb-6 bg-white/20 text-white border-white/30 backdrop-blur-sm">
                 Lightning-Powered ROSCA Platform
               </Badge>
-              <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
+              <h1 className="mb-8 text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl text-white">
                 Savings you control,{" "}
-                <span className="text-primary">payouts in seconds</span>
+                <span className="text-white">payouts in seconds</span>
               </h1>
-              <p className="mb-8 text-lg text-muted-foreground md:text-xl">
+              <p className="mb-10 text-lg text-white/90 md:text-xl lg:text-2xl">
                 Digitize traditional African savings groups with Bitcoin's Lightning Network.
                 Join trusted ROSCAs, contribute via instant Lightning payments, and build your
                 financial reputation through transparent trust scores.
               </p>
               <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
                 <Link href="/register">
-                  <Button size="lg" className="w-full sm:w-auto">
+                  <Button size="lg" className="w-full sm:w-auto bg-white text-black hover:bg-white/90 text-base px-8 py-6">
                     Start saving now
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link href="/groups">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto border-white text-white hover:bg-white/10 text-base px-8 py-6">
                     Browse groups
                   </Button>
                 </Link>
@@ -74,13 +87,13 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-b py-16 md:py-24">
+        <section className="border-b py-16 md:py-24 bg-white">
           <div className="container mx-auto px-4">
             <div className="mb-12 text-center">
-              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mb-4 text-3xl font-bold tracking-tight sm:text-4xl text-black">
                 Built for trust and transparency
               </h2>
-              <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+              <p className="mx-auto max-w-2xl text-lg text-gray-600">
                 Everything you need to manage ROSCAs digitally, securely, and transparently.
               </p>
             </div>
@@ -166,10 +179,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-b bg-muted/40 py-16 md:py-24">
+        <section className="border-b bg-white py-16 md:py-24">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-3xl text-center">
-              <h2 className="mb-6 text-3xl font-bold tracking-tight sm:text-4xl">
+              <h2 className="mb-6 text-3xl font-bold tracking-tight sm:text-4xl text-black">
                 How it works
               </h2>
               <div className="space-y-8">
@@ -178,8 +191,8 @@ export default function Home() {
                     1
                   </div>
                   <div>
-                    <h3 className="mb-2 text-xl font-semibold">Join or create a group</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="mb-2 text-xl font-semibold text-black">Join or create a group</h3>
+                    <p className="text-gray-600">
                       Browse open ROSCAs or create your own. Set contribution amounts, frequency,
                       and member limits. Apply to join groups that match your goals.
                     </p>
@@ -191,8 +204,8 @@ export default function Home() {
                     2
                   </div>
                   <div>
-                    <h3 className="mb-2 text-xl font-semibold">Get approved by members</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="mb-2 text-xl font-semibold text-black">Get approved by members</h3>
+                    <p className="text-gray-600">
                       Existing members vote on your application. 60% approval is required. Your
                       trust score helps members make informed decisions.
                     </p>
@@ -204,8 +217,8 @@ export default function Home() {
                     3
                   </div>
                   <div>
-                    <h3 className="mb-2 text-xl font-semibold">Make contributions</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="mb-2 text-xl font-semibold text-black">Make contributions</h3>
+                    <p className="text-gray-600">
                       Pay via Lightning invoices when contributions are due. Scan QR codes or copy
                       invoice strings. Payments are verified on-chain automatically.
                     </p>
@@ -217,8 +230,8 @@ export default function Home() {
                     4
                   </div>
                   <div>
-                    <h3 className="mb-2 text-xl font-semibold">Build trust, get paid</h3>
-                    <p className="text-muted-foreground">
+                    <h3 className="mb-2 text-xl font-semibold text-black">Build trust, get paid</h3>
+                    <p className="text-gray-600">
                       Timely contributions improve your trust score. Payouts are ordered by trust
                       score, so reliable members get paid first. Receive funds directly to your
                       Mavapay wallet.
@@ -230,13 +243,13 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-b py-16 md:py-24">
+        <section className="border-b py-16 md:py-24 bg-white">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-2xl">
-              <Card className="border-primary/40 bg-primary/5">
+              <Card className="border-primary/40 bg-white">
                 <CardHeader className="text-center">
-                  <CardTitle className="text-2xl">Ready to get started?</CardTitle>
-                  <CardDescription className="text-base">
+                  <CardTitle className="text-2xl text-black">Ready to get started?</CardTitle>
+                  <CardDescription className="text-base text-gray-600">
                     Join thousands of users building financial resilience through Lightning ROSCAs.
                   </CardDescription>
                 </CardHeader>
@@ -251,7 +264,7 @@ export default function Home() {
                     ].map((feature) => (
                       <div key={feature} className="flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5 text-primary" />
-                        <span>{feature}</span>
+                        <span className="text-black">{feature}</span>
                       </div>
                     ))}
                   </div>
@@ -275,7 +288,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t bg-card py-8">
+      <footer className="border-t bg-white py-8">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
@@ -286,16 +299,16 @@ export default function Home() {
                 height={24}
                 className="h-6 w-6 object-contain"
               />
-              <span className="text-sm font-medium">Save Circle</span>
+              <span className="text-sm font-medium text-black">Save Circle</span>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-600">
               Powered by Bitcoin Lightning Network
             </p>
-            <div className="flex gap-4 text-sm text-muted-foreground">
-              <Link href="/login" className="hover:text-foreground">
+            <div className="flex gap-4 text-sm text-gray-600">
+              <Link href="/login" className="hover:text-black">
                 Sign In
               </Link>
-              <Link href="/register" className="hover:text-foreground">
+              <Link href="/register" className="hover:text-black">
                 Register
               </Link>
             </div>

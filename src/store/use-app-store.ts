@@ -3,17 +3,7 @@
 import { create } from "zustand"
 import { getTrustLevel } from "@/lib/trust"
 import {
-  mockGroups,
-  mockPayments,
-  mockPayoutQueue,
-  mockTrustFactors,
-  mockTrustScoreHistory,
-  mockUser,
-  mockVotes,
-} from "@/data/mock-data"
-import {
   CreateGroupPayload,
-  GroupMember,
   GroupSummary,
   Notification,
   PaymentEntry,
@@ -23,9 +13,28 @@ import {
   UserProfile,
   VoteApplication,
 } from "@/types"
+import {
+  getCurrentUser,
+  linkMavapay as linkMavapayApi,
+  getGroups,
+  getGroupById as getGroupByIdApi,
+  createGroup as createGroupApi,
+  joinGroup as joinGroupApi,
+  toggleGroupStatus as toggleGroupStatusApi,
+  getPayments,
+  getVotes,
+  submitVote as submitVoteApi,
+  getTrustScore,
+  getTrustScoreHistory,
+  getTrustFactors,
+  getPayoutQueue,
+  getNotifications,
+  markNotificationRead as markNotificationReadApi,
+  markAllNotificationsRead as markAllNotificationsReadApi,
+} from "@/api"
 
 interface AppState {
-  user: UserProfile
+  user: UserProfile | null
   groups: GroupSummary[]
   payments: PaymentEntry[]
   votes: VoteApplication[]
@@ -34,207 +43,272 @@ interface AppState {
   payoutQueue: PayoutQueueEntry[]
   notifications: Notification[]
   selectedGroupId?: string
-  linkMavapay: (walletId: string) => void
-  createGroup: (payload: CreateGroupPayload) => GroupSummary
-  joinGroup: (groupId: string) => void
+  loading: {
+    user: boolean
+    groups: boolean
+    payments: boolean
+    votes: boolean
+    trustScore: boolean
+    payoutQueue: boolean
+    notifications: boolean
+  }
+  // Fetch functions
+  fetchUser: () => Promise<void>
+  fetchGroups: () => Promise<void>
+  fetchPayments: () => Promise<void>
+  fetchVotes: () => Promise<void>
+  fetchTrustScore: () => Promise<void>
+  fetchPayoutQueue: () => Promise<void>
+  fetchNotifications: () => Promise<void>
+  // Actions
+  linkMavapay: (walletId: string) => Promise<void>
+  createGroup: (payload: CreateGroupPayload) => Promise<GroupSummary>
+  joinGroup: (groupId: string) => Promise<void>
   setSelectedGroup: (groupId: string) => void
-  submitVote: (voteId: string, decision: "approve" | "reject") => void
+  submitVote: (voteId: string, decision: "approve" | "reject") => Promise<void>
   markPaymentPaid: (paymentId: string) => void
-  toggleGroupStatus: (groupId: string, status: "Open" | "Closed") => void
+  toggleGroupStatus: (groupId: string, status: "Open" | "Closed") => Promise<void>
   getGroupById: (groupId: string) => GroupSummary | undefined
-  markNotificationRead: (notificationId: string) => void
-  markAllNotificationsRead: () => void
+  markNotificationRead: (notificationId: string) => Promise<void>
+  markAllNotificationsRead: () => Promise<void>
   addNotification: (notification: Notification) => void
+  setUser: (user: UserProfile | null) => void
 }
 
-const buildMemberRecord = (user: UserProfile): GroupMember => ({
-  id: user.id,
-  name: user.name,
-  role: "member",
-  trustScore: user.trustScore,
-  contributionStatus: "On-time",
-  lastContribution: new Date().toISOString().slice(0, 10),
-})
-
-const mockNotifications: Notification[] = [
-  {
-    id: "notif-1",
-    type: "payment_reminder",
-    title: "Payment reminder",
-    message: "Your contribution for Lightning Maendeleo Circle is due in 2 days.",
-    read: false,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    link: "/payments",
-    groupId: "grp-1",
-  },
-  {
-    id: "notif-2",
-    type: "vote_request",
-    title: "Vote request",
-    message: "Tracy Amollo has applied to join Lightning Maendeleo Circle. Please vote.",
-    read: false,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    link: "/groups/grp-1/voting",
-    groupId: "grp-1",
-  },
-]
-
 export const useAppStore = create<AppState>((set, get) => ({
-  user: mockUser,
-  groups: mockGroups,
-  payments: mockPayments,
-  votes: mockVotes,
-  trustScoreHistory: mockTrustScoreHistory,
-  trustFactors: mockTrustFactors,
-  payoutQueue: mockPayoutQueue,
-  notifications: mockNotifications,
-  selectedGroupId: mockGroups[0]?.id,
-  linkMavapay: (walletId) =>
-    set((state) => ({
-      user: {
-        ...state.user,
-        mavapayLinked: true,
-        mavapayWalletId: walletId,
-      },
-    })),
-  createGroup: (payload) => {
-    const newGroup: GroupSummary = {
-      id: `grp-${Date.now()}`,
-      name: payload.name,
-      description: payload.description,
-      contributionAmountBtc: payload.contributionAmountBtc,
-      frequency: payload.frequency,
-      durationWeeks: payload.durationWeeks,
-      membersCount: 1,
-      memberCap: payload.memberCap,
-      status: "Open",
-      nextContributionDate: new Date().toISOString().slice(0, 10),
-      nextPayoutDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10),
-      cycleStatus: "Cycle 1 starting",
-      rules: [
-        "Lightning contributions must be settled before the deadline.",
-        "Trust-score updates occur right after payouts.",
-      ],
-      members: [buildMemberRecord(get().user)],
-      hasPendingVote: false,
-    }
-
-    set((state) => ({
-      groups: [newGroup, ...state.groups],
-      user: {
-        ...state.user,
-        adminGroupIds: [...state.user.adminGroupIds, newGroup.id],
-        memberGroupIds: [...state.user.memberGroupIds, newGroup.id],
-        totalGroups: state.user.totalGroups + 1,
-      },
-    }))
-
-    return newGroup
+  user: null,
+  groups: [],
+  payments: [],
+  votes: [],
+  trustScoreHistory: [],
+  trustFactors: [],
+  payoutQueue: [],
+  notifications: [],
+  selectedGroupId: undefined,
+  loading: {
+    user: false,
+    groups: false,
+    payments: false,
+    votes: false,
+    trustScore: false,
+    payoutQueue: false,
+    notifications: false,
   },
-  joinGroup: (groupId) =>
-    set((state) => {
-      if (state.user.memberGroupIds.includes(groupId)) {
-        return state
+  // Fetch functions
+  fetchUser: async () => {
+    set({ loading: { ...get().loading, user: true } })
+    try {
+      const user = await getCurrentUser()
+      set({ user, loading: { ...get().loading, user: false } })
+    } catch (error) {
+      console.error("Failed to fetch user:", error)
+      set({ loading: { ...get().loading, user: false } })
+      throw error
+    }
+  },
+  fetchGroups: async () => {
+    set({ loading: { ...get().loading, groups: true } })
+    try {
+      const groups = await getGroups()
+      set({ groups, loading: { ...get().loading, groups: false } })
+    } catch (error) {
+      console.error("Failed to fetch groups:", error)
+      set({ loading: { ...get().loading, groups: false } })
+      throw error
+    }
+  },
+  fetchPayments: async () => {
+    set({ loading: { ...get().loading, payments: true } })
+    try {
+      const payments = await getPayments()
+      set({ payments, loading: { ...get().loading, payments: false } })
+    } catch (error) {
+      console.error("Failed to fetch payments:", error)
+      set({ loading: { ...get().loading, payments: false } })
+      throw error
+    }
+  },
+  fetchVotes: async () => {
+    set({ loading: { ...get().loading, votes: true } })
+    try {
+      const votes = await getVotes()
+      set({ votes, loading: { ...get().loading, votes: false } })
+    } catch (error) {
+      console.error("Failed to fetch votes:", error)
+      set({ loading: { ...get().loading, votes: false } })
+      throw error
+    }
+  },
+  fetchTrustScore: async () => {
+    set({ loading: { ...get().loading, trustScore: true } })
+    try {
+      const [scoreData, history, factors] = await Promise.all([
+        getTrustScore(),
+        getTrustScoreHistory(),
+        getTrustFactors(),
+      ])
+      const user = get().user
+      if (user) {
+        set({
+          user: {
+            ...user,
+            trustScore: scoreData.score,
+            trustLevel: scoreData.level,
+          },
+          trustScoreHistory: history,
+          trustFactors: factors,
+          loading: { ...get().loading, trustScore: false },
+        })
+      } else {
+        set({
+          trustScoreHistory: history,
+          trustFactors: factors,
+          loading: { ...get().loading, trustScore: false },
+        })
       }
-
-      const updatedGroups = state.groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              members: [...group.members, buildMemberRecord(state.user)],
-              membersCount: group.membersCount + 1,
-            }
-          : group,
-      )
-
-      return {
-        groups: updatedGroups,
-        user: {
-          ...state.user,
-          memberGroupIds: [...state.user.memberGroupIds, groupId],
-        },
+    } catch (error) {
+      console.error("Failed to fetch trust score:", error)
+      set({ loading: { ...get().loading, trustScore: false } })
+      throw error
+    }
+  },
+  fetchPayoutQueue: async () => {
+    set({ loading: { ...get().loading, payoutQueue: true } })
+    try {
+      const payoutQueue = await getPayoutQueue()
+      set({ payoutQueue, loading: { ...get().loading, payoutQueue: false } })
+    } catch (error) {
+      console.error("Failed to fetch payout queue:", error)
+      set({ loading: { ...get().loading, payoutQueue: false } })
+      throw error
+    }
+  },
+  fetchNotifications: async () => {
+    set({ loading: { ...get().loading, notifications: true } })
+    try {
+      const notifications = await getNotifications()
+      set({ notifications, loading: { ...get().loading, notifications: false } })
+    } catch (error) {
+      console.error("Failed to fetch notifications:", error)
+      set({ loading: { ...get().loading, notifications: false } })
+      throw error
+    }
+  },
+  // Actions
+  linkMavapay: async (walletId: string) => {
+    try {
+      await linkMavapayApi(walletId)
+      const user = get().user
+      if (user) {
+        set({
+          user: {
+            ...user,
+            mavapayLinked: true,
+            mavapayWalletId: walletId,
+          },
+        })
       }
-    }),
-  setSelectedGroup: (groupId) => set({ selectedGroupId: groupId }),
-  submitVote: (voteId, decision) =>
+    } catch (error) {
+      console.error("Failed to link Mavapay:", error)
+      throw error
+    }
+  },
+  createGroup: async (payload: CreateGroupPayload) => {
+    try {
+      const newGroup = await createGroupApi(payload)
+      set((state) => ({
+        groups: [newGroup, ...state.groups],
+      }))
+      // Refresh user to get updated group IDs
+      await get().fetchUser()
+      return newGroup
+    } catch (error) {
+      console.error("Failed to create group:", error)
+      throw error
+    }
+  },
+  joinGroup: async (groupId: string) => {
+    try {
+      await joinGroupApi(groupId)
+      // Refresh groups and user to get updated data
+      await Promise.all([get().fetchGroups(), get().fetchUser()])
+    } catch (error) {
+      console.error("Failed to join group:", error)
+      throw error
+    }
+  },
+  setSelectedGroup: (groupId: string) => set({ selectedGroupId: groupId }),
+  submitVote: async (voteId: string, decision: "approve" | "reject") => {
+    try {
+      await submitVoteApi(voteId, decision)
+      // Refresh votes to get updated status
+      await get().fetchVotes()
+    } catch (error) {
+      console.error("Failed to submit vote:", error)
+      throw error
+    }
+  },
+  markPaymentPaid: (paymentId: string) => {
     set((state) => ({
-      votes: state.votes.map((vote) =>
-        vote.id === voteId
-          ? {
-              ...vote,
-              approvals:
-                decision === "approve" ? vote.approvals + 1 : vote.approvals,
-              rejections:
-                decision === "reject" ? vote.rejections + 1 : vote.rejections,
-              status:
-                (decision === "approve"
-                  ? (vote.approvals + 1) * 100
-                  : vote.approvals * 100) /
-                  vote.totalVoters >=
-                vote.requiredPercentage
-                  ? "approved"
-                  : vote.status,
-            }
-          : vote,
-      ),
-    })),
-  markPaymentPaid: (paymentId) =>
-    set((state) => {
-      const updatedPayments: PaymentEntry[] = state.payments.map((payment) =>
+      payments: state.payments.map((payment) =>
         payment.id === paymentId
           ? { ...payment, status: "Paid" as const, type: "History" as const }
           : payment,
-      )
-
-      const newScore = Math.min(state.user.trustScore + 5, 1000)
-      const updatedUser = {
-        ...state.user,
-        trustScore: newScore,
-        trustLevel: getTrustLevel(newScore),
-      }
-
-      return {
-        payments: updatedPayments,
-        user: updatedUser,
-        trustScoreHistory: [
-          ...state.trustScoreHistory,
-          {
-            date: new Date().toISOString().slice(0, 10),
-            score: newScore,
-          },
-        ],
-      }
-    }),
-  toggleGroupStatus: (groupId, status) =>
-    set((state) => ({
-      groups: state.groups.map((group) =>
-        group.id === groupId ? { ...group, status } : group,
       ),
-    })),
-  getGroupById: (groupId) => get().groups.find((group) => group.id === groupId),
-  markNotificationRead: (notificationId) =>
-    set((state) => ({
-      notifications: state.notifications.map((n) =>
-        n.id === notificationId ? { ...n, read: true } : n,
-      ),
-    })),
-  markAllNotificationsRead: () =>
-    set((state) => ({
-      notifications: state.notifications.map((n) => ({ ...n, read: true })),
-    })),
-  addNotification: (notification) =>
+    }))
+    // Refresh trust score after payment
+    get().fetchTrustScore()
+  },
+  toggleGroupStatus: async (groupId: string, status: "Open" | "Closed") => {
+    try {
+      const updatedGroup = await toggleGroupStatusApi(groupId, status)
+      set((state) => ({
+        groups: state.groups.map((group) =>
+          group.id === groupId ? updatedGroup : group,
+        ),
+      }))
+    } catch (error) {
+      console.error("Failed to toggle group status:", error)
+      throw error
+    }
+  },
+  getGroupById: (groupId: string) => get().groups.find((group) => group.id === groupId),
+  markNotificationRead: async (notificationId: string) => {
+    try {
+      await markNotificationReadApi(notificationId)
+      set((state) => ({
+        notifications: state.notifications.map((n) =>
+          n.id === notificationId ? { ...n, read: true } : n,
+        ),
+      }))
+    } catch (error) {
+      console.error("Failed to mark notification as read:", error)
+      throw error
+    }
+  },
+  markAllNotificationsRead: async () => {
+    try {
+      await markAllNotificationsReadApi()
+      set((state) => ({
+        notifications: state.notifications.map((n) => ({ ...n, read: true })),
+      }))
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error)
+      throw error
+    }
+  },
+  addNotification: (notification: Notification) =>
     set((state) => ({
       notifications: [notification, ...state.notifications],
     })),
+  setUser: (user: UserProfile | null) => set({ user }),
 }))
 
-export const markNotificationRead = (notificationId: string) => {
-  useAppStore.getState().markNotificationRead(notificationId)
+export const markNotificationRead = async (notificationId: string) => {
+  await useAppStore.getState().markNotificationRead(notificationId)
 }
 
-export const markAllNotificationsRead = () => {
-  useAppStore.getState().markAllNotificationsRead()
+export const markAllNotificationsRead = async () => {
+  await useAppStore.getState().markAllNotificationsRead()
 }
 

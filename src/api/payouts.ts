@@ -1,62 +1,50 @@
-import { mockRequest } from "./mock-request"
+import { apiClient } from "./client"
 import type { PayoutRequest, PayoutQueueEntry } from "@/types"
 
-const mockPayoutRequests: PayoutRequest[] = [
-  {
-    id: "payout-1",
-    groupId: "grp-1",
-    groupName: "Lightning Maendeleo Circle",
-    amountBtc: 0.02,
-    amountNaira: 1200000,
-    status: "pending",
-    requestedAt: new Date().toISOString(),
-    feeBtc: 0.0002,
-    feeNaira: 12000,
-  },
-]
-
 export const getPayoutQueue = async (groupId?: string): Promise<PayoutQueueEntry[]> => {
-  const mockQueue: PayoutQueueEntry[] = [
-    {
-      id: "queue-1",
-      groupId: "grp-1",
-      groupName: "Lightning Maendeleo Circle",
-      order: 1,
-      memberName: "Amelia Njoroge",
-      trustScore: 815,
-      payoutDate: "2025-02-25",
-    },
-  ]
-  return mockRequest(groupId ? mockQueue.filter((q) => q.groupId === groupId) : mockQueue)
+  try {
+    const url = groupId ? `/payouts/queue?groupId=${groupId}` : "/payouts/queue"
+    const response = await apiClient.get<PayoutQueueEntry[]>(url)
+    return response.data
+  } catch (error) {
+    console.error("Get payout queue error:", error)
+    throw error
+  }
 }
 
 export const requestPayout = async (
   groupId: string,
   amountBtc: number,
 ): Promise<PayoutRequest> => {
-  return mockRequest({
-    ...mockPayoutRequests[0],
-    id: `payout-${Date.now()}`,
-    groupId,
-    amountBtc,
-    status: "processing",
-    requestedAt: new Date().toISOString(),
-  })
+  try {
+    const response = await apiClient.post<PayoutRequest>("/payouts/request", {
+      groupId,
+      amountBtc,
+    })
+    return response.data
+  } catch (error) {
+    console.error("Request payout error:", error)
+    throw error
+  }
 }
 
 export const getPayoutRequests = async (): Promise<PayoutRequest[]> => {
-  return mockRequest(mockPayoutRequests)
+  try {
+    const response = await apiClient.get<PayoutRequest[]>("/payouts")
+    return response.data
+  } catch (error) {
+    console.error("Get payout requests error:", error)
+    throw error
+  }
 }
 
 export const getPayoutStatus = async (payoutId: string): Promise<PayoutRequest> => {
-  const payout = mockPayoutRequests.find((p) => p.id === payoutId)
-  return mockRequest(
-    payout || {
-      ...mockPayoutRequests[0],
-      id: payoutId,
-      status: "completed",
-      completedAt: new Date().toISOString(),
-    },
-  )
+  try {
+    const response = await apiClient.get<PayoutRequest>(`/payouts/${payoutId}/status`)
+    return response.data
+  } catch (error) {
+    console.error("Get payout status error:", error)
+    throw error
+  }
 }
 
