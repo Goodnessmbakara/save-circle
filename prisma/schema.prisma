@@ -1,0 +1,207 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  phone           String   @unique
+  password        String
+  firstName       String
+  lastName        String
+  mavapayWalletId String?
+  isVerified      Boolean  @default(false)
+  trustScore      Int      @default(500)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  groupsCreated   Group[]
+  groupMembers    GroupMember[]
+  votesGiven      MemberVote[]        @relation("Voter")
+  trustHistories  TrustScoreHistory[]
+  payments        Payment[]
+  payoutsReceived Payout[]
+
+  @@map("users")
+}
+
+model Group {
+  id                 String      @id @default(cuid())
+  name               String
+  description        String?
+  adminId            String
+  contributionAmount Int
+  duration           Int // in weeks
+  frequency          String // weekly, monthly
+  memberCap          Int
+  isOpen             Boolean     @default(true)
+  status             GroupStatus @default(ACTIVE)
+  cycleNumber        Int         @default(1)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  // Relations
+  admin    User          @relation(fields: [adminId], references: [id])
+  members  GroupMember[]
+  payments Payment[]
+  payouts  Payout[]
+  cycles   Cycle[]
+  votes    MemberVote[] // Added this relation
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id                 String       @id @default(cuid())
+  userId             String
+  groupId            String
+  status             MemberStatus @default(PENDING)
+  joinDate           DateTime?
+  trustScore         Int          @default(500)
+  totalContributions Int          @default(0)
+  hasDefaulted       Boolean      @default(false)
+
+  // Relations
+  user          User         @relation(fields: [userId], references: [id])
+  group         Group        @relation(fields: [groupId], references: [id])
+  votesReceived MemberVote[] @relation("Candidate")
+  payments      Payment[]
+  payouts       Payout[]
+
+  @@unique([userId, groupId])
+  @@map("group_members")
+}
+
+model MemberVote {
+  id          String   @id @default(cuid())
+  voterId     String
+  candidateId String
+  groupId     String
+  vote        VoteType
+  createdAt   DateTime @default(now())
+
+  // Relations
+  voter     User        @relation("Voter", fields: [voterId], references: [id])
+  candidate GroupMember @relation("Candidate", fields: [candidateId], references: [id])
+  group     Group       @relation(fields: [groupId], references: [id])
+
+  @@unique([voterId, candidateId])
+  @@map("member_votes")
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  userId           String
+  groupId          String
+  cycleNumber      Int
+  amount           Int
+  lightningInvoice String?
+  paymentHash      String?
+  status           PaymentStatus @default(PENDING)
+  dueDate          DateTime
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id])
+  group  Group       @relation(fields: [groupId], references: [id])
+  member GroupMember @relation(fields: [userId, groupId], references: [userId, groupId])
+
+  @@map("payments")
+}
+
+model Payout {
+  id                 String       @id @default(cuid())
+  userId             String
+  groupId            String
+  cycleNumber        Int
+  amount             Int
+  status             PayoutStatus @default(PENDING)
+  mavapayRef         String?
+  paidAt             DateTime?
+  trustScoreAtPayout Int
+  createdAt          DateTime     @default(now())
+
+  // Relations
+  user   User        @relation(fields: [userId], references: [id])
+  group  Group       @relation(fields: [groupId], references: [id])
+  member GroupMember @relation(fields: [userId, groupId], references: [userId, groupId])
+
+  @@map("payouts")
+}
+
+model Cycle {
+  id          String      @id @default(cuid())
+  groupId     String
+  cycleNumber Int
+  startDate   DateTime
+  endDate     DateTime
+  status      CycleStatus @default(ACTIVE)
+  payoutOrder Json // Array of user IDs in payout order
+
+  // Relations
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([groupId, cycleNumber])
+  @@map("cycles")
+}
+
+model TrustScoreHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String?
+  score     Int
+  reason    String
+  factors   Json // Breakdown of score factors
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("trust_score_history")
+}
+
+// Enums
+enum GroupStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum MemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum VoteType {
+  APPROVE
+  REJECT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+}
+
+enum CycleStatus {
+  ACTIVE
+  COMPLETED
+}
