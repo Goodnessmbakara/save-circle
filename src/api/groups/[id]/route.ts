@@ -1,4 +1,4 @@
-// app/api/groups/[id]/route.ts
+// src/api/groups/[id]/route.ts
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { authenticateToken } from '@/lib/auth'
@@ -34,18 +34,8 @@ const GET = authenticateToken(async (req: AuthenticatedRequest, { params }: Rout
                 lastName: true,
                 trustScore: true
               }
-            },
-            votes: {
-              include: {
-                voter: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true
-                  }
-                }
-              }
             }
+            // REMOVED: votes relation since it doesn't exist in schema
           }
         },
         cycles: {
@@ -75,7 +65,7 @@ const GET = authenticateToken(async (req: AuthenticatedRequest, { params }: Rout
 
     return NextResponse.json({
       success: true,
-      message: 'Group retrieved successfully', // Add this message property
+      message: 'Group retrieved successfully',
       data: { group }
     })
 
